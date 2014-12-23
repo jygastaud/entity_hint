@@ -1,0 +1,5 @@
+name = Entity hint
+description = Generate hint for entity metadata
+core = 7.x
+
+dependencies[] = composer_manager
