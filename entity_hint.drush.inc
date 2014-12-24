@@ -25,5 +25,5 @@ function entity_hint_drush_command_callback()
     foreach (array_keys(entity_get_info()) as $type) {
         $output[] = entity_hint($type);
     }
-    print implode("\n\n", $output);
+    print "<?php\n\n" . implode("\n\n", $output);
 }
