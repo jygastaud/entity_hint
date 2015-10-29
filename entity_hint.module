@@ -18,7 +18,7 @@ class EntityTypeHintGenerator {
   /** @var string */
   protected $entityType;
 
-  /** @var EntityMetadataWrapper */
+  /** @var EntityDrupalWrapper */
   protected $wrapper;
 
   /** @var array */
@@ -40,6 +40,10 @@ class EntityTypeHintGenerator {
       ->setDocBlock($this->generateDocBlock());
 
     foreach ($this->wrapper->getPropertyInfo() as $name => $info) {
+      $metadata->addProperty('PROPERTY_' . strtoupper($name), $name, PropertyGenerator::FLAG_STATIC);
+    }
+
+    foreach ($this->wrapper->getPropertyInfo() as $name => $info) {
       $metadata->addPropertyFromGenerator($this->generateProperty($name, $info));
     }
 
@@ -51,7 +55,7 @@ class EntityTypeHintGenerator {
     $doc = new DocBlockGenerator($entity_info['description']);
 
     if (isset($entity_info['label'])) {
-      $doc->setTag(new Tag('label', $entity_info['label']));
+      $doc->setShortDescription($entity_info['label']);
     }
 
     return $doc;
@@ -83,8 +87,13 @@ class EntityBundleHintGenerator extends EntityTypeHintGenerator {
     $this->entityType = $entityType;
     $this->entity_info = entity_get_info($entityType);
     $this->bundle = $bundle;
-    $bundleKey = $this->entity_info['bundle keys']['bundle'];
-    $this->wrapper = entity_metadata_wrapper($entityType, entity_create($entityType, [$bundleKey => $bundle]));
+
+    if ($bundleKey = $this->entity_info['bundle keys']['bundle']) {
+      $this->wrapper = entity_metadata_wrapper($entityType, entity_create($entityType, [$bundleKey => $bundle]));
+    }
+    else {
+      $this->wrapper = entity_metadata_wrapper($entityType);
+    }
   }
 
   public function generate() {
@@ -93,6 +102,13 @@ class EntityBundleHintGenerator extends EntityTypeHintGenerator {
       ->setExtendedClass('EntityDrupalWrapper')
       ->setFinal(TRUE)
       ->addTrait(parent::generateClassName());
+
+    foreach (field_info_instances($this->entityType, $this->bundle) as $name => $info) {
+      $metadata->addConstant(
+        str_replace('FIELD_FIELD', 'FIELD_', 'FIELD_' . strtoupper($name)),
+        $name
+      );
+    }
 
     foreach (field_info_instances($this->entityType, $this->bundle) as $name => $info) {
       $metadata->addPropertyFromGenerator($this->generateField($name, $info));
@@ -108,9 +124,9 @@ class EntityBundleHintGenerator extends EntityTypeHintGenerator {
 
   private function generateField($name, $info) {
     $label = isset($info['label']) ? $info['label'] : '';
-    $description = isset($info['description']) ? $info['description'] : '';;
-    $doc = new DocBlockGenerator($label, $label !== $description ? $description : '');
-    $doc->setTag(new Tag('field'));
+    $description = isset($info['description']) ? $info['description'] : '';
+    $doc = new DocBlockGenerator(NULL, $label !== $description ? $description : '');
+    $doc->setTag(new Tag('field', $label));
 
     $field = field_info_field($name);
     if ('entityreference' === $field['type']) {
@@ -127,8 +143,13 @@ class EntityBundleHintGenerator extends EntityTypeHintGenerator {
       $doc->setTag(new Tag('var', implode('|', $types)));
     }
     else {
-      $baseType = get_class($this->wrapper->get($name));
-      $doc->setTag(new Tag('var', $baseType));
+      try {
+        $baseType = get_class($this->wrapper->get($name));
+        $doc->setTag(new Tag('var', $baseType));
+      }
+      catch (EntityMalformedException $e) {
+        $doc->setTag(new Tag('var', 'EntityValueWrapper|EntityListWrapper'));
+      }
     }
 
     if (!empty($info['required'])) {
