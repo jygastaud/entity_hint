@@ -20,7 +20,7 @@ function entity_hint_drush_command() {
 function entity_hint_drush_command_callback() {
   require_once __DIR__ . '/entity_hint.module';
 
-  $types = ['profile2', 'simple']; # array_keys(entity_get_info())
+  $types = array_keys(entity_get_info());
   $output = [];
   foreach ($types as $type) {
     $output[] = entity_hint($type);
