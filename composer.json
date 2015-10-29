@@ -1,5 +1,5 @@
 {
     "require": {
-        "zendframework/zend-code": "2.3.*@dev"
+        "zendframework/zend-code": "^2.5.2"
     }
 }
