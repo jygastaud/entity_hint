@@ -1,109 +1,140 @@
 <?php
 
 use Zend\Code\Generator\ClassGenerator;
-use Zend\Code\Generator\DocBlock\Tag\GenericTag;
+use Zend\Code\Generator\DocBlock\Tag\GenericTag as Tag;
 use Zend\Code\Generator\DocBlockGenerator;
-use Zend\Code\Generator\MethodGenerator;
 use Zend\Code\Generator\PropertyGenerator;
+use Zend\Code\Generator\TraitGenerator;
 
-function entity_hint($entity_type, $class = 'EntityHintGenerator')
-{
-    return (new $class($entity_type))->generate();
+function entity_hint($entityType, $bundle = NULL) {
+  if (NULL === $bundle) {
+    return (new EntityTypeHintGenerator($entityType))->generate();
+  }
+
+  return (new EntityBundleHintGenerator($entityType, $bundle))->generate();
 }
 
-class EntityHintGenerator
-{
+class EntityTypeHintGenerator {
+  /** @var string */
+  protected $entityType;
 
-    /** @var string */
-    private $entity_type;
+  /** @var EntityMetadataWrapper */
+  protected $wrapper;
 
-    /** @var EntityMetadataWrapper */
-    private $wrapper;
+  /** @var array */
+  protected $entity_info;
 
-    /** @var array */
-    private $entity_info;
+  public function __construct($entityType) {
+    $this->entityType = $entityType;
+    $this->wrapper = entity_metadata_wrapper($entityType);
+    $this->entity_info = $this->wrapper->entityInfo();
+  }
 
-    public function __construct($entity_type)
-    {
-        $this->entity_type = $entity_type;
-        $this->wrapper = entity_metadata_wrapper($entity_type);
-        $this->entity_info = $this->wrapper->entityInfo();
+  protected function generateClassName() {
+    $name = ucwords(str_replace('_', ' ', $this->entityType)) . 'MetadataWrapperTrait';
+    return str_replace(' ', '', $name);
+  }
+
+  public function generate() {
+    $metadata = (new TraitGenerator($this->generateClassName()))
+      ->setDocBlock($this->generateDocBlock());
+
+    foreach ($this->wrapper->getPropertyInfo() as $name => $info) {
+      $metadata->addPropertyFromGenerator($this->generateProperty($name, $info));
     }
 
-    public function generate()
-    {
-        $output = [];
-        foreach (array_keys($this->entity_info['bundles']) as $bundle_name) {
-            $output[] = $this->getBundleHint($bundle_name);
-        }
+    return $metadata->generate();
+  }
 
-        if (NULL === $this->output_file) {
-            return implode("\n\n", $output);
-        }
+  protected function generateDocBlock() {
+    $entity_info = $this->wrapper->entityInfo();
+    $doc = new DocBlockGenerator($entity_info['description']);
+
+    if (isset($entity_info['label'])) {
+      $doc->setTag(new Tag('label', $entity_info['label']));
     }
 
-    private function getBundleHint($bundle_name)
-    {
-        $metadata = new ClassGenerator($this->generateClassName($this->entity_type, $bundle_name));
-        $metadata->setDocBlock($this->generateDocBlock());
-        $metadata->setExtendedClass('EntityDrupalWrapper');
-        foreach ($this->wrapper->getPropertyInfo() as $name => $info) {
-            $metadata->addPropertyFromGenerator($this->generateProperty($name, $info));
-        }
-        return $this->generateControllerGetters($metadata);
+    return $doc;
+  }
+
+  private function generateProperty($name, $info) {
+    $label = isset($info['label']) ? $info['label'] : '';
+    $description = isset($info['description']) ? strip_tags($info['description']) : '';
+    $doc = new DocBlockGenerator($label, $label !== $description ? $description : '');
+    if (isset($info['type'])) {
+      $base_type = get_class($this->wrapper->get($name));
+      $doc->setTag(new Tag('var', "{$base_type} {$info['type']}"));
     }
 
-    private function generateClassName($entity_type, $bundle_name)
-    {
-        $name = ucwords(str_replace('_', ' ', $entity_type . ' ' . $bundle_name)) . 'MetadataWrapper';
-        return str_replace(' ', '', $name);
+    if (!empty($info['required'])) {
+      $doc->setTag(new Tag('required'));
     }
 
-    private function generateDocBlock()
-    {
-        $entity_info = $this->wrapper->entityInfo();
-        $doc = new DocBlockGenerator($entity_info['description']);
-        $doc->setTag(new GenericTag('fieldable', !empty($entity_info['fieldable']) ? 'yes' : 'no'));
-        $doc->setTag(new GenericTag('configuration', !empty($entity_info['configuration']) ? 'yes' : 'no'));
+    $property = new PropertyGenerator($name);
+    $property->setDocBlock($doc);
+    return $property;
+  }
+}
 
-        if (isset($entity_info['label'])) {
-            $doc->setTag(new GenericTag('label', $entity_info['label']));
-        }
+class EntityBundleHintGenerator extends EntityTypeHintGenerator {
+  private $bundle;
 
-        return $doc;
+  public function __construct($entityType, $bundle) {
+    $this->entityType = $entityType;
+    $this->entity_info = entity_get_info($entityType);
+    $this->bundle = $bundle;
+    $bundleKey = $this->entity_info['bundle keys']['bundle'];
+    $this->wrapper = entity_metadata_wrapper($entityType, entity_create($entityType, [$bundleKey => $bundle]));
+  }
+
+  public function generate() {
+    $metadata = (new ClassGenerator($this->generateClassName()))
+      ->setDocBlock($this->generateDocBlock())
+      ->setExtendedClass('EntityDrupalWrapper')
+      ->setFinal(TRUE)
+      ->addTrait(parent::generateClassName());
+
+    foreach (field_info_instances($this->entityType, $this->bundle) as $name => $info) {
+      $metadata->addPropertyFromGenerator($this->generateField($name, $info));
     }
 
-    private function generateProperty($name, $info)
-    {
-        $doc = new DocBlockGenerator(isset($info['label']) ? $info['label'] : '', isset($info['description']) ? $info['description'] : '');
-        $doc->setTag(new GenericTag(!empty($info['field']) ? 'field' : 'property'));
-        if (isset($info['type'])) {
-            $base_type = get_class($this->wrapper->get($name));
-            $doc->setTag(new GenericTag('var', "{$base_type} {$info['type']}"));
-        }
+    return $metadata->generate();
+  }
 
-        if (!empty($info['required'])) {
-            $doc->setTag(new GenericTag('required'));
-        }
+  protected function generateClassName() {
+    $name = ucwords(str_replace('_', ' ', $this->entityType . ' ' . $this->bundle)) . 'MetadataWrapper';
+    return str_replace(' ', '', $name);
+  }
 
-        $property = new PropertyGenerator($name);
-        $property->setDocBlock($doc);
-        return $property;
+  private function generateField($name, $info) {
+    $label = isset($info['label']) ? $info['label'] : '';
+    $description = isset($info['description']) ? $info['description'] : '';;
+    $doc = new DocBlockGenerator($label, $label !== $description ? $description : '');
+    $doc->setTag(new Tag('field'));
+
+    $field = field_info_field($name);
+    if ('entityreference' === $field['type']) {
+      $refType = $field['settings']['target_type'];
+      $types = [];
+
+      foreach ($field['settings']['handler_settings']['target_bundles'] as $refBundle) {
+        $refVar = ucwords(str_replace('_', ' ', $refType . ' ' . $refBundle)) . 'MetadataWrapper';
+        $types[] = str_replace(' ', '', $refVar);
+      }
+
+      $types = $types ?: ['Base' . ucwords($refType) . 'MetadataWrapper'];
+
+      $doc->setTag(new Tag('var', implode('|', $types)));
+    }
+    else {
+      $baseType = get_class($this->wrapper->get($name));
+      $doc->setTag(new Tag('var', $baseType));
     }
 
-    /**
-     * @param ClassGenerator $metadata
-     * @return string
-     */
-    private function generateControllerGetters(ClassGenerator $metadata)
-    {
-        $map['controller class'] = 'return entity_get_controller(\'' . $this->entity_type . '\');';
-        foreach ($map as $key => $body) {
-            $name = str_replace(' ', '', 'get' . ucwords($key));
-            $doc = '@return ' . $this->entity_info[$key];
-            $metadata->addMethod($name, [], MethodGenerator::FLAG_PUBLIC, $body, $doc);
-        }
-        return $metadata->generate();
+    if (!empty($info['required'])) {
+      $doc->setTag(new Tag('required'));
     }
 
+    return (new PropertyGenerator($name))->setDocBlock($doc);
+  }
 }
