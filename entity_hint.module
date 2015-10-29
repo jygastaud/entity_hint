@@ -105,7 +105,7 @@ class EntityBundleHintGenerator extends EntityTypeHintGenerator {
 
     foreach (field_info_instances($this->entityType, $this->bundle) as $name => $info) {
       $metadata->addConstant(
-        str_replace('FIELD_FIELD', 'FIELD_', 'FIELD_' . strtoupper($name)),
+        str_replace('FIELD_FIELD_', 'FIELD_', 'FIELD_' . strtoupper($name)),
         $name
       );
     }
