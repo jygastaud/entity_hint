@@ -10,7 +10,8 @@ function entity_hint_drush_command() {
     'description' => 'Generate metadata hints for entities.',
     'callback'    => 'entity_hint_drush_command_callback',
     'options'     => [
-      'type' => 'Generate code for certain entity type.',
+      'type'      => 'Generate code for certain entity type.',
+      'namespace' => 'Namespace for generated class',
     ],
     'examples'    => [
       'drush entity-hint > private/files/entity-hints.php'
@@ -35,11 +36,12 @@ function entity_hint_drush_command() {
 function entity_hint_drush_command_callback() {
   require_once __DIR__ . '/entity_hint.metadata.php';
 
+  $namespace = drush_get_option('namespace', NULL);
   $types = drush_get_option_list('type', NULL) ?: array_keys(entity_get_info());
 
   $output = [];
   foreach ($types as $type) {
-    $output[] = entity_hint($type);
+    $output[] = entity_hint($type, NULL, $namespace);
 
     foreach (array_keys(entity_get_info($type)['bundles']) as $bundle) {
       $output[] = entity_hint($type, $bundle);
@@ -60,7 +62,7 @@ function entity_hint_efq_drush_callback() {
     $output[] = entity_hint_efq($type, NULL, $namespace);
 
     foreach (array_keys(entity_get_info($type)['bundles']) as $bundle) {
-      $output[] = entity_hint_efq($type, $bundle, $namespace);
+      $output[] = entity_hint_efq($type, $bundle);
     }
   }
 

@@ -6,9 +6,9 @@ use Zend\Code\Generator\DocBlockGenerator;
 use Zend\Code\Generator\PropertyGenerator;
 use Zend\Code\Generator\TraitGenerator;
 
-function entity_hint($entityType, $bundle = NULL) {
+function entity_hint($entityType, $bundle = NULL, $namespace = NULL) {
   if (NULL === $bundle) {
-    return (new EntityTypeHintGenerator($entityType))->generate();
+    return (new EntityTypeHintGenerator($entityType, $namespace))->generate();
   }
 
   return (new EntityBundleHintGenerator($entityType, $bundle))->generate();
@@ -18,14 +18,18 @@ class EntityTypeHintGenerator {
   /** @var string */
   protected $entityType;
 
+  /** @var string */
+  protected $namespace;
+
   /** @var EntityDrupalWrapper */
   protected $wrapper;
 
   /** @var array */
   protected $entity_info;
 
-  public function __construct($entityType) {
+  public function __construct($entityType, $namespace) {
     $this->entityType = $entityType;
+    $this->namespace = $namespace;
     $this->wrapper = entity_metadata_wrapper($entityType);
     $this->entity_info = $this->wrapper->entityInfo();
   }
@@ -47,7 +51,7 @@ class EntityTypeHintGenerator {
       $metadata->addPropertyFromGenerator($this->generateProperty($name, $info));
     }
 
-    return $metadata->generate();
+    return $metadata->setNamespaceName($this->namespace)->generate();
   }
 
   protected function generateDocBlock() {

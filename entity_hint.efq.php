@@ -62,13 +62,11 @@ final class EntityTypeEFQHintGenerator {
 class EntityBundleEFQHintGenerator {
   private $type;
   private $bundle;
-  private $namespace;
   private $wrapper;
 
-  public function __construct($type, $bundle, $namespace) {
+  public function __construct($type, $bundle) {
     $this->type = $type;
     $this->bundle = $bundle;
-    $this->namespace = $namespace;
     $this->entity_info = entity_get_info($type);
     $this->wrapper = entity_metadata_wrapper($type);
     if ($bundleKey = $this->entity_info['bundle keys']['bundle']) {
@@ -109,10 +107,7 @@ class EntityBundleEFQHintGenerator {
       }
     }
 
-    return $class
-      ->setNamespaceName($this->namespace)
-      ->setDocBlock($doc)
-      ->generate();
+    return $class->setDocBlock($doc)->generate();
   }
 
   private function getConstructor() {
