@@ -40,18 +40,16 @@ class EntityTypeHintGenerator {
   }
 
   public function generate() {
-    $metadata = (new TraitGenerator($this->generateClassName()))
-      ->setDocBlock($this->generateDocBlock());
+    $trait = (new TraitGenerator($this->generateClassName()));
 
     foreach ($this->wrapper->getPropertyInfo() as $name => $info) {
-      $metadata->addProperty('PROPERTY_' . strtoupper($name), $name, PropertyGenerator::FLAG_STATIC);
+      $trait->addPropertyFromGenerator($this->generateProperty($name, $info));
     }
 
-    foreach ($this->wrapper->getPropertyInfo() as $name => $info) {
-      $metadata->addPropertyFromGenerator($this->generateProperty($name, $info));
-    }
-
-    return $metadata->setNamespaceName($this->namespace)->generate();
+    return $trait
+      ->setNamespaceName($this->namespace)
+      ->setDocBlock($this->generateDocBlock())
+      ->generate();
   }
 
   protected function generateDocBlock() {
@@ -100,30 +98,55 @@ class EntityBundleHintGenerator extends EntityTypeHintGenerator {
     }
   }
 
+  protected function generateClassName() {
+    $name = ucwords(str_replace('_', ' ', $this->entityType . ' ' . $this->bundle)) . 'MetadataWrapper';
+    return str_replace(' ', '', $name);
+  }
+
   public function generate() {
-    $metadata = (new ClassGenerator($this->generateClassName()))
+    $class = (new ClassGenerator($this->generateClassName()))
       ->setDocBlock($this->generateDocBlock())
       ->setExtendedClass('EntityDrupalWrapper')
       ->setFinal(TRUE)
       ->addTrait(parent::generateClassName());
 
+    $this->addConstants($class);
+
     foreach (field_info_instances($this->entityType, $this->bundle) as $name => $info) {
-      $metadata->addConstant(
-        str_replace('FIELD_FIELD_', 'FIELD_', 'FIELD_' . strtoupper($name)),
-        $name
+      $class->addPropertyFromGenerator($this->generateField($name, $info));
+    }
+
+    return $class->generate();
+  }
+
+  private function addConstants(ClassGenerator $class) {
+    foreach ($this->wrapper->getPropertyInfo() as $name => $info) {
+      $comment = new DocBlockGenerator($info['label'], $info['description']);
+
+      $class->addConstantFromGenerator(
+        (new PropertyGenerator())
+          ->setName('PROPERTY_' . strtoupper($name))
+          ->setDefaultValue($name)
+          ->setConst(TRUE)
+          ->setDocBlock($comment)
       );
     }
 
     foreach (field_info_instances($this->entityType, $this->bundle) as $name => $info) {
-      $metadata->addPropertyFromGenerator($this->generateField($name, $info));
+      $comment = new DocBlockGenerator($info['label'], $info['description']);
+
+      if (!empty($info['required'])) {
+        $comment->setTag(new Tag('required'));
+      }
+
+      $class->addConstantFromGenerator(
+        (new PropertyGenerator())
+          ->setName(str_replace('FIELD_FIELD_', 'FIELD_', 'FIELD_' . strtoupper($name)))
+          ->setDefaultValue($name)
+          ->setConst(TRUE)
+          ->setDocBlock($comment)
+      );
     }
-
-    return $metadata->generate();
-  }
-
-  protected function generateClassName() {
-    $name = ucwords(str_replace('_', ' ', $this->entityType . ' ' . $this->bundle)) . 'MetadataWrapper';
-    return str_replace(' ', '', $name);
   }
 
   private function generateField($name, $info) {
