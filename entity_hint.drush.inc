@@ -9,6 +9,9 @@ function entity_hint_drush_command() {
   $items['entity-hint'] = [
     'description' => 'Generate metadata hints for entities.',
     'callback'    => 'entity_hint_drush_command_callback',
+    'options'     => [
+      'type' => 'Generate code for certain entity type.',
+    ],
     'examples'    => [
       'drush entity-hint > private/files/entity-hints.php'
     ],
@@ -18,9 +21,10 @@ function entity_hint_drush_command() {
 }
 
 function entity_hint_drush_command_callback() {
-  require_once __DIR__ . '/entity_hint.module';
+  require_once __DIR__ . '/entity_hint.metadata.php';
 
-  $types = array_keys(entity_get_info());
+  $types = drush_get_option_list('type', NULL) ?: array_keys(entity_get_info());
+
   $output = [];
   foreach ($types as $type) {
     $output[] = entity_hint($type);
