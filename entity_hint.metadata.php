@@ -125,23 +125,11 @@ class EntityBundleHintGenerator extends EntityTypeHintGenerator {
 
       $class->addConstantFromGenerator(
         (new PropertyGenerator())
-          ->setName('PROPERTY_' . strtoupper($name))
-          ->setDefaultValue($name)
-          ->setConst(TRUE)
-          ->setDocBlock($comment)
-      );
-    }
-
-    foreach (field_info_instances($this->entityType, $this->bundle) as $name => $info) {
-      $comment = new DocBlockGenerator($info['label'], $info['description']);
-
-      if (!empty($info['required'])) {
-        $comment->setTag(new Tag('required'));
-      }
-
-      $class->addConstantFromGenerator(
-        (new PropertyGenerator())
-          ->setName(str_replace('FIELD_FIELD_', 'FIELD_', 'FIELD_' . strtoupper($name)))
+          ->setName(
+            empty($info['field'])
+              ? 'PROPERTY_' . strtoupper($name)
+              : str_replace('FIELD_FIELD_', 'FIELD_', 'FIELD_' . strtoupper($name))
+          )
           ->setDefaultValue($name)
           ->setConst(TRUE)
           ->setDocBlock($comment)
