@@ -8,4 +8,5 @@ is generator for you.
 
 ### Usage
 
-    drush en entity_hint > private/files/entity_hint.php
+    drush en entity_hint -y
+    drush entity-hint > private/files/entity_hint.php
