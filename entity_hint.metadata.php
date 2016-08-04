@@ -120,20 +120,28 @@ class EntityBundleHintGenerator extends EntityTypeHintGenerator {
   }
 
   private function addConstants(ClassGenerator $class) {
-    foreach ($this->wrapper->getPropertyInfo() as $name => $info) {
-      $comment = new DocBlockGenerator($info['label'], $info['description']);
 
-      $class->addConstantFromGenerator(
-        (new PropertyGenerator())
-          ->setName(
-            empty($info['field'])
-              ? 'PROPERTY_' . strtoupper($name)
-              : str_replace('FIELD_FIELD_', 'FIELD_', 'FIELD_' . strtoupper($name))
-          )
-          ->setDefaultValue($name)
-          ->setConst(TRUE)
-          ->setDocBlock($comment)
-      );
+    try {
+      $properties = $this->wrapper->getPropertyInfo();
+      foreach ($properties as $name => $info) {
+        $comment = new DocBlockGenerator($info['label'], $info['description']);
+
+        $class->addConstantFromGenerator(
+          (new PropertyGenerator())
+            ->setName(
+              empty($info['field'])
+                ? 'PROPERTY_' . strtoupper($name)
+                : str_replace('FIELD_FIELD_', 'FIELD_', 'FIELD_' . strtoupper($name))
+            )
+            ->setDefaultValue($name)
+            ->setConst(TRUE)
+            ->setDocBlock($comment)
+        );
+      }
+    }
+    catch (EntityMalformedException $e) {
+    }
+    catch (EntityMetadataWrapperException $e) {
     }
   }
 
@@ -163,6 +171,9 @@ class EntityBundleHintGenerator extends EntityTypeHintGenerator {
         $doc->setTag(new Tag('var', $baseType));
       }
       catch (EntityMalformedException $e) {
+        $doc->setTag(new Tag('var', 'EntityValueWrapper|EntityListWrapper'));
+      }
+      catch (EntityMetadataWrapperException $e) {
         $doc->setTag(new Tag('var', 'EntityValueWrapper|EntityListWrapper'));
       }
     }
