@@ -156,9 +156,11 @@ class EntityBundleHintGenerator extends EntityTypeHintGenerator {
       $refType = $field['settings']['target_type'];
       $types = [];
 
-      foreach ($field['settings']['handler_settings']['target_bundles'] as $refBundle) {
-        $refVar = ucwords(str_replace('_', ' ', $refType . ' ' . $refBundle)) . 'MetadataWrapper';
-        $types[] = str_replace(' ', '', $refVar);
+      if (isset($field['settings']['handler_settings']['target_bundles'])) {
+        foreach ($field['settings']['handler_settings']['target_bundles'] as $refBundle) {
+          $refVar = ucwords(str_replace('_', ' ', $refType . ' ' . $refBundle)) . 'MetadataWrapper';
+          $types[] = str_replace(' ', '', $refVar);
+        }
       }
 
       $types = $types ?: ['Base' . ucwords($refType) . 'MetadataWrapper'];
